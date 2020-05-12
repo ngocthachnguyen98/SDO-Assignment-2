@@ -87,3 +87,11 @@
       register: updatedb_result
     - debug:
         var: updatedb_result
+
+
+    # - name: Start the application, if the service is rebooted
+    #   # sudo systemctl restart TechTestApp
+    #   systemd:
+    #     state: restarted
+    #     daemon_reload: yes
+    #     name: TechTestApp

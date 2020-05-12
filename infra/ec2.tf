@@ -72,24 +72,3 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 
-
-# # Launch Configuration do not need
-# resource "aws_launch_configuration" "A2_TechTestApp" {
-#   name            = "tech-test-app-lc"
-#   image_id        = var.ami_id
-#   instance_type   = "t2.micro"
-#   security_groups = [aws_security_group.main.id]
-
-#   key_name = aws_key_pair.A2_TechTestApp_deployer.key_name
-# }
-
-
-# # Auto Scaling Group ("EC2 instance deployed in Private layer") do not need
-# resource "aws_autoscaling_group" "A2_TechTestApp" {
-#   name                 = "tech-test-app-asg"
-#   launch_configuration = aws_launch_configuration.A2_TechTestApp.name
-#   max_size             = 1
-#   min_size             = 1
-#   vpc_zone_identifier  = [aws_subnet.private_az1.id, aws_subnet.private_az2.id, aws_subnet.private_az3.id]
-#   target_group_arns    = [aws_lb_target_group.A2_TechTestApp.arn]
-# }

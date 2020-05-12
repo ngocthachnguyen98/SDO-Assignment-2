@@ -1,7 +1,7 @@
 # For remote backend setup with S3 and DynamoDB
 resource "aws_s3_bucket" "terraform-state-storage-s3" {
-  bucket = "tech-test-app-remote-state-storage-bucket"
-  acl    = "private"
+  bucket        = "tech-test-app-remote-state-storage-bucket"
+  acl           = "private"
   force_destroy = true
 
   versioning {
@@ -15,26 +15,37 @@ resource "aws_s3_bucket" "terraform-state-storage-s3" {
 
 terraform {
   backend "s3" {
-    bucket = "tech-test-app-remote-state-storage-bucket"
-    encrypt = true
-    key    = "terraform.tfstate"
-    region = "us-east-1"
+    bucket          = "tech-test-app-remote-state-storage-bucket"
+    encrypt         = true
+    key             = "terraform.tfstate"
+    region          = "us-east-1"
     dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
   }
 }
 
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
-  name = "tech-test-app-terraform-state-lock-dynamo"
-  hash_key = "LockID"
-  read_capacity = 20
+  name           = "tech-test-app-terraform-state-lock-dynamo"
+  hash_key       = "LockID"
+  read_capacity  = 20
   write_capacity = 20
- 
+
   attribute {
     name = "LockID"
     type = "S"
   }
- 
+
   tags = {
     Name = "TechTechApp DynamoDB Terraform State Lock Table"
+  }
+}
+
+
+# Elastic Container Registry (for automating CircleCI deployment)
+resource "aws_ecr_repository" "app" {
+  name                 = "app"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = false
   }
 }
