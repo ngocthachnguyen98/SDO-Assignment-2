@@ -1,15 +1,3 @@
-/*
-https://www.terraform.io/docs/providers/aws/r/vpc.html
-
-https://www.terraform.io/docs/providers/aws/r/internet_gateway.html
-
-https://www.terraform.io/docs/providers/aws/r/default_route_table.html
-
-https://www.terraform.io/docs/providers/aws/r/subnet.html
-
-https://www.terraform.io/docs/providers/aws/r/security_group.html
-*/
-
 # VPC
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"

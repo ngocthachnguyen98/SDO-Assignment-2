@@ -6,16 +6,6 @@ instance_public_ip="$(cd ../infra && terraform output instance_public_ip)"
 echo -e 'all:\n  hosts:\n    ''"'"${instance_public_ip}"'"' > inventory.yml
 
 # todo add any additional variables
-
-# conf.toml
-# "DbUser" = "postgres"
-# "DbPassword" = "changeme"
-# "DbName" = "app"
-# "DbPort" = "5432"
-# "DbHost" = "localhost"
-# "ListenHost" = "localhost"
-# "ListenPort" = "3000"
-
 db_endpoint="$(cd ../infra && terraform output db_endpoint)"
 db_user="$(cd ../infra && terraform output db_user)"
 db_pass="$(cd ../infra && terraform output db_pass)"

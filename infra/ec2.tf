@@ -1,17 +1,3 @@
-/*
-https://www.terraform.io/docs/providers/aws/r/key_pair.html
-
-https://www.terraform.io/docs/providers/aws/r/launch_configuration.html
-
-https://www.terraform.io/docs/providers/aws/r/lb_target_group.html
-
-https://www.terraform.io/docs/providers/aws/r/autoscaling_group.html
-
-https://www.terraform.io/docs/providers/aws/r/lb.html
-
-https://www.terraform.io/docs/providers/aws/r/lb_listener.html
-*/
-
 # Key Pair
 resource "aws_key_pair" "A2_TechTestApp_deployer" {
   key_name   = "tech-test-app-deployer-key"

@@ -1,8 +1,3 @@
-/*
-https://www.terraform.io/docs/providers/aws/r/db_instance.html
-*/
-
-
 # RDS Instance
 resource "aws_db_instance" "A2_TechTestApp" {
   identifier            = "tech-test-app-db"
