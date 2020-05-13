@@ -20,7 +20,7 @@
         path: /tmp/TechTestApp_v.0.6.0_linux64.zip
       register: release_file
     - debug:
-        var: release_file
+        var: release_file.stat.exists
 
 
     - name: Download app release to EC2 instance to tmp directory
@@ -89,9 +89,22 @@
         var: updatedb_result
 
 
-    # - name: Start the application, if the service is rebooted
-    #   # sudo systemctl restart TechTestApp
-    #   systemd:
-    #     state: restarted
-    #     daemon_reload: yes
-    #     name: TechTestApp
+    # Set the application as a service
+    - name: Install TechTestApp.service systemd unit file
+      template: 
+        src: TechTestApp.service.j2
+        dest: /etc/systemd/system/TechTestApp.service
+        owner: root
+        group: root
+        mode: '0600'
+      become: yes
+
+
+    - name: Start the application, if the service is rebooted
+      become: yes
+      systemd:
+        name: TechTestApp.service
+        enabled: yes      # start the service on boot
+        state: started
+        daemon_reload: yes
+    # Verify by running systemctl status TechTestApp on the instance's terminal

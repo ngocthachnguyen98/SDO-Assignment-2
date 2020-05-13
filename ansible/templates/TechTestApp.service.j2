@@ -1,0 +1,15 @@
+[Unit]
+Description=My TechTestApp Service
+
+[Service]
+ExecStart=/etc/app/dist/TechTestApp serve
+Restart=always
+WorkingDirectory=/etc/app/dist
+Environment="VTT_DBUSER={{ db_user }}"
+Environment="VTT_DBPASSWORD={{ db_pass }}"
+Environment="VTT_DBHOST={{ db_endpoint }}"
+Environment="VTT_LISTENHOST=0.0.0.0"
+Environment="VTT_LISTENPORT=80"
+
+[Install]
+WantedBy=multi-user.target
