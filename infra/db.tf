@@ -13,7 +13,7 @@ resource "aws_db_instance" "A2_TechTestApp" {
   port                  = "5432"
   skip_final_snapshot   = true
 
-  vpc_security_group_ids = [aws_security_group.main.id]
+  vpc_security_group_ids = ["${aws_security_group.default.id}"] # db sg
 
   db_subnet_group_name = aws_db_subnet_group.main.name
 
@@ -29,5 +29,38 @@ resource "aws_db_subnet_group" "main" {
 
   tags = {
     Name = "TechTestApp DB Subnet Group"
+  }
+}
+
+
+# Database security group
+resource "aws_security_group" "default" {
+  description = "Postgres"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "Postgres"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    # cidr_blocks = [aws_subnet.data_az1.cidr_block, aws_subnet.data_az2.cidr_block, aws_subnet.data_az3.cidr_block]
+    # cidr_blocks = ["${data.aws_vpc.main.cidr_block}"]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "DB Security Group"
   }
 }

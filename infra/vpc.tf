@@ -138,6 +138,7 @@ resource "aws_security_group" "main" {
   description = "Allow SSH and HTTP inbound traffic"
   vpc_id      = aws_vpc.main.id
 
+  # Allow SSH and HTTP
   ingress {
     description = "SSH from Internet"
     from_port   = 22
@@ -152,16 +153,6 @@ resource "aws_security_group" "main" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # For Postgres database
-  ingress {
-    description = "Postgres"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    # cidr_blocks = [aws_subnet.data_az1.cidr_block, aws_subnet.data_az2.cidr_block, aws_subnet.data_az3.cidr_block]
   }
 
   # Allow all outbound traffic
