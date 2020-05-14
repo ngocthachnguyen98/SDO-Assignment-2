@@ -9,6 +9,9 @@ commands:
             curl -o terraform.zip https://releases.hashicorp.com/terraform/0.12.21/terraform_0.12.21_linux_amd64.zip
             sudo unzip terraform.zip -d /usr/local/bin/
 
+            # Install Ansible
+            sudo apt install ansible
+
             # Install AWS CLI
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
@@ -18,47 +21,26 @@ commands:
 jobs:
   build:
     machine: true
-    environment:
-      ECR: 208973674356.dkr.ecr.us-east-1.amazonaws.com
-      reponame: app
     steps:
       - checkout
       - setup-cd
-
-      # - run:
-      #     name: Install dependencies
-      #     command: |
-      #       # Install AWS CLI
-      #       curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-      #       unzip awscliv2.zip
-      #       sudo ./aws/install
-
-
-      - run: 
-          name: Build Docker image & push to registry
-          command: |
-            mkdir artifacts
-            export IMAGE_TAG=${ECR}/${reponame}:${CIRCLE_SHA1}
-            echo ${IMAGE_TAG} > artifacts/image.txt
-            docker build -t ${IMAGE_TAG} .
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ECR}
-            docker push ${IMAGE_TAG}
-
 
       - run: 
           name: Package up Infrastructure as Code (IAC) and scripts
           command: |
             cp -r infra artifacts/infra
-
+            cp -r ansible artifacts/ansible
 
       - persist_to_workspace:
           root: ./
           paths:
             - artifacts     
 
-  deploy-app:
+  deploy-test:
     docker:
       - image: cimg/base:2020.01
+    environment:
+      ENV: test
     steps:
       - attach_workspace: 
           at: ./
@@ -71,13 +53,19 @@ jobs:
             cd artifacts/infra
             make init
             make up
-            
+
+      - run:
+          name: Run script to generate environment variables and execute Ansible Playbook
+          command: |
+            cd artifacts/ansible
+            ./run_ansible.sh
+                  
 
 workflows:
   version: 2
   pipeline:
     jobs:
       - build
-      - deploy-app:
+      - deploy-test:
           requires:
             - build

@@ -13,15 +13,15 @@ resource "aws_s3_bucket" "terraform-state-storage-s3" {
   }
 }
 
-# terraform {
-#   backend "s3" {
-#     bucket          = "tech-test-app-remote-state-storage-bucket"
-#     encrypt         = true
-#     key             = "terraform.tfstate"
-#     region          = "us-east-1"
-#     dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
-#   }
-# }
+terraform {
+  backend "s3" {
+    bucket          = "tech-test-app-remote-state-storage-bucket"
+    encrypt         = true
+    key             = "terraform.tfstate"
+    region          = "us-east-1"
+    dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
+  }
+}
 
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
   name           = "tech-test-app-terraform-state-lock-dynamo"
@@ -36,16 +36,5 @@ resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
 
   tags = {
     Name = "TechTechApp DynamoDB Terraform State Lock Table"
-  }
-}
-
-
-# Elastic Container Registry (for automating CircleCI deployment)
-resource "aws_ecr_repository" "app" {
-  name                 = "app"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = false
   }
 }
