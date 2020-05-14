@@ -176,16 +176,6 @@ resource "aws_security_group" "main" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # For Postgres database
-  ingress {
-    description = "Postgres"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    # cidr_blocks = ["0.0.0.0/0"]
-    cidr_blocks = [aws_subnet.data_az1.cidr_block, aws_subnet.data_az2.cidr_block, aws_subnet.data_az3.cidr_block]
-  }
-
   # Allow all outbound traffic
   egress {
     from_port   = 0
@@ -251,9 +241,11 @@ A database backing the application will be deployed:
 * In the Data layer (a database subnet group will be declared for this purpose)
 * With Postgres 10.7 
 * With specific configuration according to the documentaion of the application, like database name, username, etc.
+* With a database security group
 
 
 ```
+# RDS Instance
 resource "aws_db_instance" "A2_TechTestApp" {
   identifier            = "tech-test-app-db"
   allocated_storage     = 20
@@ -277,7 +269,7 @@ resource "aws_db_instance" "A2_TechTestApp" {
   }
 }
 
-
+# Database subnet group
 resource "aws_db_subnet_group" "main" {
   name       = "tech-test-app-db-subnet-group"
   subnet_ids = [aws_subnet.data_az1.id, aws_subnet.data_az2.id, aws_subnet.data_az3.id]
@@ -286,6 +278,37 @@ resource "aws_db_subnet_group" "main" {
     Name = "TechTestApp DB Subnet Group"
   }
 }
+
+# Databse security group
+resource "aws_security_group" "default" {
+  description = "Postgres"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "Postgres"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "DB Security Group"
+  }
+}
+
 ```
 ---
 ### Remote Backend
@@ -338,7 +361,7 @@ terraform {
 }
 ```
 
-The Makefile is also updated with the right terraform init command for initiializing the remote backend
+The `Makefile` is also updated with the right `terraform init` command for initiializing the remote backend
 
 ```
 terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamodb_table=tech-test-app-terraform-state-lock-dynamo" --backend-config="bucket=tech-test-app-remote-state-storage-bucket"
@@ -352,20 +375,147 @@ First we need to deploy infrastructure onto AWS. Simply change into `/infra` dir
 make init
 make up
 ```
-
-After the infrastructure is ready, change into `/ansible` directory and run this command: 
+After initializing our remote backend and the infrastructure is ready, change into `/ansible` directory and run this command: 
 
 ```
 ./run_ansible.sh
 ```
 
 * What the above command would do is first generate `inventory.yml` file with the public IP of our EC2 instance so that we can access it from `playbook.yml`
+
 * Secondly it will generate `/vars/external_vars.yml` with the database endpoint, username and password for overriding environment variables from the `playbook.yml`
+
 * Lastly it will run `playbook.yml` 
 
 ### Ansible Playbook
 
+The playbook will go a number of steps in order to deploy the application
 
+**1. Check if the release file of the app exists**
+When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/temp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded
+
+```
+- name: 1. Check if the release file of the app exists
+  stat:
+    path: /tmp/TechTestApp_v.0.6.0_linux64.zip
+  register: release_file
+- debug:
+    var: release_file.stat.exists
+```
+
+**2. Download app release to EC2 instance to tmp directory**
+If the release file already exists at `/temp`, this step will be skipped. If not, the file will be downloaded
+
+```
+- name: 2. Download app release to EC2 instance to tmp directory
+  become: yes
+  get_url:
+    url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # local path to release file 
+    dest: /tmp
+    mode: '0644'
+  when: not release_file.stat.exists
+  register: download_result
+- debug:
+    var: download_result
+```
+
+**3. Check if the app directory exists**
+The path where the application is installed is `/etc/app`. Therefore, we want to check if the application is already installed (unzipping the realease file) at this location
+
+```
+- name: 3. Check if the app directory exists
+  stat:
+    path: /etc/app
+  register: app_dir
+- debug:
+    var: app_dir.stat.exists
+```
+
+**4. Create app directory if it does not exist**
+If the `app` directory already exists, this step will be skipped. If not, we create the `app` directory for the application installation coming in later step
+
+```
+- name: 4. Create app directory if it does not exist
+  become: yes
+  shell: "cd /etc && mkdir app"
+  when: not app_dir.stat.exists
+```
+
+**6. Unzip the release file, if the application has not been already installed**
+The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tech Test App on the EC2 instance at `/etc/app`
+
+```
+- name: 6. Unzip the release file, if the application has not been already installed
+  become: yes
+  unarchive:
+    src: /tmp/TechTestApp_v.0.6.0_linux64.zip
+    dest: /etc/app
+    remote_src: yes
+  when: not app_dir.stat.exists
+  register: install_result
+- debug:
+    var: install_result
+```
+
+**7. Include environment varibles file**
+The environment variables are generated from `run_ansible.sh` and located `/vars/external_vars.yml`. These will be use for overriding and targeting the right AWS RDS instance (public endpoint, database username and password)
+
+```
+- name: 7. Include environment varibles file    
+  include_vars: external_vars.yml
+```
+
+**8. Override environment variables for conf.toml and run TechTestApp updatedb -s**
+According to the Tech Test App documentation, We will run `./TechTestApp udatedb -s` to create tables and seed data to our RDS instance
+
+```
+- name: 8. Override environment variables for conf.toml and run TechTestApp updatedb -s
+  become: yes
+  shell: |
+    export VTT_DBUSER={{ db_user }}
+    export VTT_DBPASSWORD={{ db_pass }}
+    export VTT_DBHOST={{ db_endpoint }}
+    export VTT_LISTENHOST=0.0.0.0
+    export VTT_LISTENPORT=80
+    ./TechTestApp updatedb -s
+  args:
+    chdir: /etc/app/dist
+  register: updatedb_result
+- debug:
+    var: updatedb_result
+```
+
+**9. Install TechTestApp.service systemd unit file**
+The application needs to be set up as an SystemD service as specified. Therefore, a template `TechTestApp.service.j2` is provided for feeding in the environment variables. The service file will be located at `/etc/systemd/system/`
+
+```
+- name: 9. Install TechTestApp.service systemd unit file
+  template: 
+    src: TechTestApp.service.j2
+    dest: /etc/systemd/system/TechTestApp.service
+    owner: root
+    group: root
+    mode: '0600'
+  become: yes
+```
+
+**10. Start the application, if the service is rebooted**
+This step is for configuring the service file of the application to automatically start if the server is rebooted
+
+```
+- name: 10. Start the application, if the service is rebooted
+  become: yes
+  systemd:
+    name: TechTestApp.service
+    enabled: yes      # start the service on boot
+    state: started
+    daemon_reload: yes
+```
 
 ---
 ## CLEAN UP INSTRUCTION
+Simply change into `infra` directory and run this command:
+
+```
+make down
+```

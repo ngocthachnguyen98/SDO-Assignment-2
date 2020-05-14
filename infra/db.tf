@@ -44,8 +44,6 @@ resource "aws_security_group" "default" {
     to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    # cidr_blocks = [aws_subnet.data_az1.cidr_block, aws_subnet.data_az2.cidr_block, aws_subnet.data_az3.cidr_block]
-    # cidr_blocks = ["${data.aws_vpc.main.cidr_block}"]
   }
 
   # Allow all outbound traffic

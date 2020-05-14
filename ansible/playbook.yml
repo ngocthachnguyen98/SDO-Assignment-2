@@ -1,21 +1,7 @@
 - name: Deploy Application
   hosts: all
   tasks: 
-    # - name: Ensure apache is installed
-    #   become: yes
-    #   package:
-    #     name: httpd
-    #     state: present
-
-    # - name: Ensure apache service is running
-    #   become: yes
-    #   service: 
-    #     name: httpd
-    #     state: started
-    #     enabled: yes
-
-
-    - name: Check if the release file of the app exists
+    - name: 1. Check if the release file of the app exists
       stat:
         path: /tmp/TechTestApp_v.0.6.0_linux64.zip
       register: release_file
@@ -23,7 +9,7 @@
         var: release_file.stat.exists
 
 
-    - name: Download app release to EC2 instance to tmp directory
+    - name: 2. Download app release to EC2 instance to tmp directory
       become: yes
       get_url:
         url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # local path to release file 
@@ -35,7 +21,7 @@
         var: download_result
 
 
-    - name: Check if the app directory exists
+    - name: 3. Check if the app directory exists
       stat:
         path: /etc/app
       register: app_dir
@@ -43,37 +29,37 @@
         var: app_dir.stat.exists
       
 
-    - name: Create app directory if it does not exist
+    - name: 4. Create app directory if it does not exist
       become: yes
       shell: "cd /etc && mkdir app"
       when: not app_dir.stat.exists
 
       
-    - name: Check if the dist directory exists
-      stat:
-        path: /etc/app/dist
-      register: dist_dir
-    - debug:
-        var: dist_dir.stat.exists
+    # - name: 5. Check if the dist directory exists
+    #   stat:
+    #     path: /etc/app/dist
+    #   register: dist_dir
+    # - debug:
+    #     var: dist_dir.stat.exists
 
 
-    - name: Unzip the release file, if the application has not been already installed
+    - name: 6. Unzip the release file, if the application has not been already installed
       become: yes
       unarchive:
         src: /tmp/TechTestApp_v.0.6.0_linux64.zip
         dest: /etc/app
         remote_src: yes
-      when: not dist_dir.stat.exists
+      when: not app_dir.stat.exists
       register: install_result
     - debug:
         var: install_result
 
     
-    - name: Include environment varibles file    
+    - name: 7. Include environment varibles file    
       include_vars: external_vars.yml
 
 
-    - name: Override environment variables for conf.toml and run TechTestApp updatedb -s
+    - name: 8. Override environment variables for conf.toml and run TechTestApp updatedb -s
       become: yes
       shell: |
         export VTT_DBUSER={{ db_user }}
@@ -90,7 +76,7 @@
 
 
     # Set the application as a service
-    - name: Install TechTestApp.service systemd unit file
+    - name: 9. Install TechTestApp.service systemd unit file
       template: 
         src: TechTestApp.service.j2
         dest: /etc/systemd/system/TechTestApp.service
@@ -100,11 +86,10 @@
       become: yes
 
 
-    - name: Start the application, if the service is rebooted
+    - name: 10. Start the application, if the service is rebooted
       become: yes
       systemd:
         name: TechTestApp.service
         enabled: yes      # start the service on boot
         state: started
         daemon_reload: yes
-    # Verify by running systemctl status TechTestApp on the instance's terminal
