@@ -25,7 +25,3 @@ output "state_bucket_name" {
 output "dynamoDb_lock_table_name" {
   value = aws_dynamodb_table.dynamodb-terraform-state-lock.name
 }
-
-output "ecr_url" {
-  value = aws_ecr_repository.app.repository_url
-}

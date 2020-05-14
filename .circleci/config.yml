@@ -61,6 +61,9 @@ jobs:
             ./run_ansible.sh
                   
 
+  # deploy-prod:
+
+
 workflows:
   version: 2
   pipeline:
@@ -69,3 +72,10 @@ workflows:
       - deploy-test:
           requires:
             - build
+      - approval: 
+          type: approval
+          requires:
+            - deploy-test
+      # - deploy-prod:
+      #     requires:
+      #       - approval
