@@ -7,7 +7,9 @@
 
 ## DEPENDENCIES
 
+
 ### VPC
+
 The code below is how the VPC is created on AWS using Terraform in `infra/vpc.tf`.
 
 ```
@@ -52,6 +54,7 @@ resource "aws_default_route_table" "main" {
 ---
 
 ### Subnets
+
 The specification states that we will need a VPC with 3 layers across 3 availability zones (9 subnets) (Public, Private and Data). One availability zone will have one subnet for public, one for private and one for data.
 
 * The 3 availability zones are: us-east-1a, us-east-1b & us-east-1c.
@@ -103,9 +106,11 @@ resource "aws_subnet" "data_az1" {
 ---
 
 ### Application Deployment
+
 Once the VPC is declared, we will have the environment to deploy our EC2 instance (in the Private layer) with a load balancer (deployed in the Public layer) and backed by an RDS database in the Data layer.
 
 ### Key Pair
+
 But to log into the instance, a key pair is needed. 
 
 In the `infra/keys` directory, the RSA key named `ec2-key` will be generated through `infra/key_gen.sh`, which is triggered when running `make up` command.
@@ -113,6 +118,18 @@ In the `infra/keys` directory, the RSA key named `ec2-key` will be generated thr
 The shell script `infra/key_gen.sh` will also create `terraform.tfvars` file to populate `var.public_key` in `infra/ec2.tf`.
 
 ```
+# key_gen.sh
+#!/bin/bash
+set +ex
+
+mkdir -p keys
+
+test -f keys/ec2-key || yes | ssh-keygen -t rsa -b 4096 -f keys/ec2-key -N ''
+
+echo -e 'public_key = ''"'"$(cat keys/ec2-key.pub)"'"' > ./terraform.tfvars
+```
+```
+# Key Pair
 resource "aws_key_pair" "A2_TechTestApp_deployer" {
   key_name   = "tech-test-app-deployer-key"
   public_key = var.public_key
@@ -122,6 +139,7 @@ resource "aws_key_pair" "A2_TechTestApp_deployer" {
 ---
 
 ### EC2 instance
+
 For the AMI, the latest Amazon Linux 2 image will be used for the instance.
 
 ```
@@ -163,6 +181,7 @@ resource "aws_instance" "web" {
 ---
 
 ### Security Group
+
 This security group provides access to the EC2 instance for SSH, HTTP. 
 
 ```
@@ -206,6 +225,7 @@ resource "aws_security_group" "main" {
 ---
 
 ### Target Group 
+
 The target group is for telling the load balancer to direct the traffic to the EC2 instance.
 
 ```
@@ -220,6 +240,7 @@ resource "aws_lb_target_group" "A2_TechTestApp" {
 ---
 
 ### Load Balancer
+
 Next is the load balancer with its listener. The listener is used to define the routing, and ties the port and protocol to the instance in the target group.
 
 ```
@@ -252,6 +273,7 @@ resource "aws_lb_listener" "front_end" {
 ---
 
 ### RDS instance
+
 A database backing the application will be deployed:
 * In the Data layer (a database subnet group will be declared for this purpose)
 * With Postgres 10.7 
@@ -329,6 +351,7 @@ resource "aws_security_group" "default" {
 ---
 
 ### Remote Backend
+
 For storing Terraform state file remotely, an AWS S3 bucket and DynamoDB table will be set up as below:
 * First code block is for declaring S3 bucket 
 * Second code block is for declaring DynamoDB table
@@ -385,6 +408,7 @@ terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamo
 ```
 
 ---
+
 ## DEPLOY INSTRUCTION
 
 First we need to deploy infrastructure onto AWS. Simply change into `/infra` directory where the `Makefile` located and run:
@@ -405,13 +429,36 @@ After initializing our remote backend and the infrastructure is ready, change in
 
 * Lastly it will execute `playbook.yml` 
 
+```
+# run_ansible.sh
+#!/bin/bash
+set +ex
+
+# Genereate inventory.yml file with ec2 host
+instance_public_ip="$(cd ../infra && terraform output instance_public_ip)"
+echo -e 'all:\n  hosts:\n    ''"'"${instance_public_ip}"'"' > inventory.yml
+
+# Add any additional variables
+db_endpoint="$(cd ../infra && terraform output db_endpoint)"
+db_user="$(cd ../infra && terraform output db_user)"
+db_pass="$(cd ../infra && terraform output db_pass)"
+
+echo -e 'db_endpoint: '"${db_endpoint}"'\n'\
+'db_user: '"${db_user}"'\n'\
+'db_pass: '"${db_pass}" > ./vars/external_vars.yml;
+
+# Execute playbook.yml
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.yml -e 'record_host_keys=True' -u ec2-user --private-key ../infra/keys/ec2-key playbook.yml
+```
+
 ---
 
 ### Ansible Playbook
 
 The playbook will go a number of steps in order to deploy the application
 
-**1. Check if the release file of the app exists**
+#### 1. Check if the release file of the app exists
+
 When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/temp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded.
 
 ```
@@ -421,7 +468,8 @@ When run for the first time, the application release file `TechTestApp_v.0.6.0_l
   register: release_file
 ```
 
-**2. Download app release to EC2 instance to tmp directory**
+#### 2. Download app release to EC2 instance to tmp directory
+
 If the release file already exists at `/tmp`, this step will be skipped. If not, the file will be downloaded.
 
 ```
@@ -435,7 +483,8 @@ If the release file already exists at `/tmp`, this step will be skipped. If not,
   register: download_result
 ```
 
-**3. Check if the app directory exists**
+#### 3. Check if the app directory exists
+
 The path where the application is installed is `/etc/app`. Therefore, we want to check if the application is already installed (unzipping the realease file) at this location.
 
 ```
@@ -445,7 +494,8 @@ The path where the application is installed is `/etc/app`. Therefore, we want to
   register: app_dir
 ```
 
-**4. Create app directory if it does not exist**
+#### 4. Create app directory if it does not exist
+
 If the `app` directory already exists, this step will be skipped. If not, we create the `app` directory for the application installation coming in later step.
 
 ```
@@ -455,7 +505,8 @@ If the `app` directory already exists, this step will be skipped. If not, we cre
   when: not app_dir.stat.exists
 ```
 
-**5. Unzip the release file, if the application has not been already installed**
+#### 5. Unzip the release file, if the application has not been already installed
+
 The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tech Test App on the EC2 instance at `/etc/app`.
 
 ```
@@ -469,7 +520,8 @@ The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tec
   register: install_result
 ```
 
-**6. Include environment varibles file**
+#### 6. Include environment varibles file
+
 The environment variables are generated from `run_ansible.sh` and located `/vars/external_vars.yml`. These will be use for overriding and targeting the right AWS RDS instance (public endpoint, database username and password).
 
 ```
@@ -477,7 +529,8 @@ The environment variables are generated from `run_ansible.sh` and located `/vars
   include_vars: external_vars.yml
 ```
 
-**7. Override environment variables for conf.toml and run TechTestApp updatedb -s**
+#### 7. Override environment variables for conf.toml and run TechTestApp updatedb -s
+
 According to the Tech Test App documentation, We will run `./TechTestApp udatedb -s` to create tables and seed data to our RDS instance.
 
 ```
@@ -495,7 +548,8 @@ According to the Tech Test App documentation, We will run `./TechTestApp udatedb
   register: updatedb_result
 ```
 
-**8. Install TechTestApp.service systemd unit file**
+#### 8. Install TechTestApp.service systemd unit file
+
 The application needs to be set up as an SystemD service as specified. Therefore, a template `TechTestApp.service.j2` is provided for feeding in the environment variables. The service file will be located at `/etc/systemd/system/`.
 
 ```
@@ -509,7 +563,8 @@ The application needs to be set up as an SystemD service as specified. Therefore
   become: yes
 ```
 
-**9. Start the application, if the service is rebooted**
+#### 9. Start the application, if the service is rebooted
+
 This step is for configuring the service file of the application to automatically start if the server is rebooted.
 
 ```
@@ -526,11 +581,91 @@ This step is for configuring the service file of the application to automaticall
 
 ### Circle CI Deployment
 
+***Note:*** *While working on this part, my account was not able to push any job to CircleCI. Therefore, I had created a different repository to work with. I have provided Screenshots folder for this issue*
 
+The `./circleci/config.yml` is developed to run on every commit on every branch in the repository.
+
+Because there are some similiarity in the jobs. A command named `setup-cd` has been declared at the beginning of the file with environment configuring steps. This will install *Terraform, Ansible and AWS CLI*:
+
+```
+setup-cd:
+  steps:
+    - run:
+        name: Configure environment
+        command: |
+          # Install Terraform
+          curl -o terraform.zip https://releases.hashicorp.com/terraform/0.12.24/terraform_0.12.24_linux_amd64.zip
+          sudo unzip terraform.zip -d /usr/local/bin/
+
+          # Install Ansible
+          sudo apt-add-repository ppa:ansible/ansible
+          sudo apt-get update
+          sudo apt-get install ansible -y
+          sudo apt-get install python -y
+
+          # Install AWS CLI
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+```
+
+#### Build job
+
+* This job will start by running the `setup-cd` command. 
+
+* Then it will package up Infrastructure as Code (IAC) and scripts into directory * called `artifacts`. 
+
+* This directory will be kept within the workspace for the later job:
+
+```
+# Build job summary
+- setup-cd
+
+- run: 
+    name: Package up Infrastructure as Code (IAC) and scripts
+    command: |
+      mkdir artifacts
+      cp -r infra artifacts/infra
+      cp -r ansible artifacts/ansible
+
+- persist_to_workspace:
+    root: ./
+    paths:
+      - artifacts 
+```
+
+#### Deploy test job
+
+* This job will also start by running the `setup-cd` command. 
+
+* With the `artifacts` directory packaged up from the previous job, we will use the `Makefile` to initialize the remote backend and deploy infrastructure on AWS.
+
+* Then also from the `artifacts` directory, we will run the shell script to execute the Ansible playbook.
+
+```
+# Deploy test job summary
+- setup-cd
+
+- run:
+  name: Deploy infrastructure
+  command: |
+    cd artifacts/infra
+    make init
+    make up
+
+- run:
+  name: Run shell script to generate environment variables and execute Ansible Playbook
+  command: |
+    cd artifacts/ansible
+    ./run_ansible.sh
+```
+
+**Disclaimer: The CircleCI deployment is an unfinished work due to some issue related to secret key verification**
 
 ---
 
 ## CLEAN UP INSTRUCTION
+
 Simply change into `infra` directory and run this command:
 
 ```
