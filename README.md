@@ -176,7 +176,6 @@ resource "aws_security_group" "main" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -268,7 +267,8 @@ resource "aws_db_instance" "A2_TechTestApp" {
     Name = "TechTestApp DB Instance"
   }
 }
-
+```
+```
 # Database subnet group
 resource "aws_db_subnet_group" "main" {
   name       = "tech-test-app-db-subnet-group"
@@ -278,7 +278,8 @@ resource "aws_db_subnet_group" "main" {
     Name = "TechTestApp DB Subnet Group"
   }
 }
-
+```
+```
 # Databse security group
 resource "aws_security_group" "default" {
   description = "Postgres"
@@ -292,7 +293,6 @@ resource "aws_security_group" "default" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Allow all outbound traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -331,8 +331,8 @@ resource "aws_s3_bucket" "terraform-state-storage-s3" {
     Name = "TechTechApp Remote State Storage Bucket"
   }
 }
-
-
+```
+```
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
   name = "tech-test-app-terraform-state-lock-dynamo"
   hash_key = "LockID"
@@ -348,8 +348,8 @@ resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
     Name = "TechTechApp DynamoDB Terraform State Lock Table"
   }
 }
-
-
+```
+```
 terraform {
   backend "s3" {
     bucket = "tech-test-app-remote-state-storage-bucket"

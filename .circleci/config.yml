@@ -6,11 +6,14 @@ commands:
           name: Configure environment
           command: |
             # Install Terraform
-            curl -o terraform.zip https://releases.hashicorp.com/terraform/0.12.21/terraform_0.12.21_linux_amd64.zip
+            curl -o terraform.zip https://releases.hashicorp.com/terraform/0.12.24/terraform_0.12.24_linux_amd64.zip
             sudo unzip terraform.zip -d /usr/local/bin/
 
             # Install Ansible
-            sudo apt install ansible
+            sudo apt-add-repository ppa:ansible/ansible
+            sudo apt-get update
+            sudo apt-get install ansible -y
+            sudo apt-get install python -y
 
             # Install AWS CLI
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
@@ -28,6 +31,7 @@ jobs:
       - run: 
           name: Package up Infrastructure as Code (IAC) and scripts
           command: |
+            mkdir artifacts
             cp -r infra artifacts/infra
             cp -r ansible artifacts/ansible
 
@@ -55,13 +59,14 @@ jobs:
             make up
 
       - run:
-          name: Run script to generate environment variables and execute Ansible Playbook
+          name: Run shell script to generate environment variables and execute Ansible Playbook
           command: |
             cd artifacts/ansible
             ./run_ansible.sh
                   
 
   # deploy-prod:
+    
 
 
 workflows:
