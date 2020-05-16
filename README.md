@@ -8,7 +8,7 @@
 ## DEPENDENCIES
 
 ### VPC
-The code below is how the VPC is created on AWS using Terraform in `infra/vpc.tf`
+The code below is how the VPC is created on AWS using Terraform in `infra/vpc.tf`.
 
 ```
 resource "aws_vpc" "main" {
@@ -48,7 +48,9 @@ resource "aws_default_route_table" "main" {
   }
 }
 ```
+
 ---
+
 ### Subnets
 The specification states that we will need a VPC with 3 layers across 3 availability zones (9 subnets) (Public, Private and Data). One availability zone will have one subnet for public, one for private and one for data.
 
@@ -97,12 +99,18 @@ resource "aws_subnet" "data_az1" {
   }
 }
 ```
+
 ---
+
 ### Application Deployment
-Once the VPC is declared, we will have the environment to deploy our EC2 instance (in the Private layer) with a load balancer (deployed in the Public layer) and backed by an RDS database in the Data layer
+Once the VPC is declared, we will have the environment to deploy our EC2 instance (in the Private layer) with a load balancer (deployed in the Public layer) and backed by an RDS database in the Data layer.
 
 ### Key Pair
-But to log into the instance, a key pair is needed. This can be an RSA SSH key created on your local machine. You need to declare public key `id_rsa.pub` (could have differnt naming) in `infra/terraform.tfvars` for `var.public_key` in `infra/ec2.tf`
+But to log into the instance, a key pair is needed. 
+
+In the `infra/keys` directory, the RSA key named `ec2-key` will be generated through `infra/key_gen.sh`, which is triggered when running `make up` command.
+
+The shell script `infra/key_gen.sh` will also create `terraform.tfvars` file to populate `var.public_key` in `infra/ec2.tf`.
 
 ```
 resource "aws_key_pair" "A2_TechTestApp_deployer" {
@@ -110,9 +118,11 @@ resource "aws_key_pair" "A2_TechTestApp_deployer" {
   public_key = var.public_key
 }
 ```
+
 ---
+
 ### EC2 instance
-For the AMI, the latest Amazon Linux 2 image will be used for the instance
+For the AMI, the latest Amazon Linux 2 image will be used for the instance.
 
 ```
 data "aws_ami" "amazon-linux-2" {
@@ -132,7 +142,7 @@ data "aws_ami" "amazon-linux-2" {
 }
 ```
 
-Only one instance will be deployed in the Private layer as stated in the specification
+Only one instance will be deployed in the Private layer as stated in the specification.
 
 ```
 resource "aws_instance" "web" {
@@ -149,11 +159,11 @@ resource "aws_instance" "web" {
   }
 }
 ```
+
 ---
+
 ### Security Group
-This security group provides access:
-* To EC2 instance for SSH, HTTP (to get the website) 
-* To the RDS instance (to run update script like updatedb command for the TechTestApp)
+This security group provides access to the EC2 instance for SSH, HTTP. 
 
 ```
 resource "aws_security_group" "main" {
@@ -192,7 +202,9 @@ resource "aws_security_group" "main" {
   }
 }
 ```
+
 ---
+
 ### Target Group 
 The target group is for telling the load balancer to direct the traffic to the EC2 instance.
 
@@ -204,7 +216,9 @@ resource "aws_lb_target_group" "A2_TechTestApp" {
   vpc_id   = aws_vpc.main.id
 }
 ```
+
 ---
+
 ### Load Balancer
 Next is the load balancer with its listener. The listener is used to define the routing, and ties the port and protocol to the instance in the target group.
 
@@ -234,14 +248,15 @@ resource "aws_lb_listener" "front_end" {
   }
 }
 ```
+
 ---
+
 ### RDS instance
 A database backing the application will be deployed:
 * In the Data layer (a database subnet group will be declared for this purpose)
 * With Postgres 10.7 
 * With specific configuration according to the documentaion of the application, like database name, username, etc.
 * With a database security group
-
 
 ```
 # RDS Instance
@@ -310,7 +325,9 @@ resource "aws_security_group" "default" {
 }
 
 ```
+
 ---
+
 ### Remote Backend
 For storing Terraform state file remotely, an AWS S3 bucket and DynamoDB table will be set up as below:
 * First code block is for declaring S3 bucket 
@@ -361,11 +378,12 @@ terraform {
 }
 ```
 
-The `Makefile` is also updated with the right `terraform init` command for initiializing the remote backend
+The `Makefile` is also updated with the right --backend-config option for `terraform init` command to initiialize the remote backend:
 
 ```
 terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamodb_table=tech-test-app-terraform-state-lock-dynamo" --backend-config="bucket=tech-test-app-remote-state-storage-bucket"
 ```
+
 ---
 ## DEPLOY INSTRUCTION
 
@@ -385,54 +403,50 @@ After initializing our remote backend and the infrastructure is ready, change in
 
 * Secondly it will generate `/vars/external_vars.yml` with the database endpoint, username and password for overriding environment variables from the `playbook.yml`
 
-* Lastly it will run `playbook.yml` 
+* Lastly it will execute `playbook.yml` 
+
+---
 
 ### Ansible Playbook
 
 The playbook will go a number of steps in order to deploy the application
 
 **1. Check if the release file of the app exists**
-When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/temp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded
+When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/temp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded.
 
 ```
 - name: 1. Check if the release file of the app exists
   stat:
     path: /tmp/TechTestApp_v.0.6.0_linux64.zip
   register: release_file
-- debug:
-    var: release_file.stat.exists
 ```
 
 **2. Download app release to EC2 instance to tmp directory**
-If the release file already exists at `/temp`, this step will be skipped. If not, the file will be downloaded
+If the release file already exists at `/tmp`, this step will be skipped. If not, the file will be downloaded.
 
 ```
 - name: 2. Download app release to EC2 instance to tmp directory
   become: yes
   get_url:
-    url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # local path to release file 
+    url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # path to release file 
     dest: /tmp
     mode: '0644'
   when: not release_file.stat.exists
   register: download_result
-- debug:
-    var: download_result
 ```
 
 **3. Check if the app directory exists**
-The path where the application is installed is `/etc/app`. Therefore, we want to check if the application is already installed (unzipping the realease file) at this location
+The path where the application is installed is `/etc/app`. Therefore, we want to check if the application is already installed (unzipping the realease file) at this location.
 
 ```
 - name: 3. Check if the app directory exists
   stat:
     path: /etc/app
   register: app_dir
-- debug:
-    var: app_dir.stat.exists
 ```
 
 **4. Create app directory if it does not exist**
-If the `app` directory already exists, this step will be skipped. If not, we create the `app` directory for the application installation coming in later step
+If the `app` directory already exists, this step will be skipped. If not, we create the `app` directory for the application installation coming in later step.
 
 ```
 - name: 4. Create app directory if it does not exist
@@ -441,11 +455,11 @@ If the `app` directory already exists, this step will be skipped. If not, we cre
   when: not app_dir.stat.exists
 ```
 
-**6. Unzip the release file, if the application has not been already installed**
-The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tech Test App on the EC2 instance at `/etc/app`
+**5. Unzip the release file, if the application has not been already installed**
+The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tech Test App on the EC2 instance at `/etc/app`.
 
 ```
-- name: 6. Unzip the release file, if the application has not been already installed
+- name: 5. Unzip the release file, if the application has not been already installed
   become: yes
   unarchive:
     src: /tmp/TechTestApp_v.0.6.0_linux64.zip
@@ -453,23 +467,21 @@ The `/tmp/TechTestApp_v.0.6.0_linux64.zip` file will unzipped to install the Tec
     remote_src: yes
   when: not app_dir.stat.exists
   register: install_result
-- debug:
-    var: install_result
 ```
 
-**7. Include environment varibles file**
-The environment variables are generated from `run_ansible.sh` and located `/vars/external_vars.yml`. These will be use for overriding and targeting the right AWS RDS instance (public endpoint, database username and password)
+**6. Include environment varibles file**
+The environment variables are generated from `run_ansible.sh` and located `/vars/external_vars.yml`. These will be use for overriding and targeting the right AWS RDS instance (public endpoint, database username and password).
 
 ```
-- name: 7. Include environment varibles file    
+- name: 6. Include environment varibles file    
   include_vars: external_vars.yml
 ```
 
-**8. Override environment variables for conf.toml and run TechTestApp updatedb -s**
-According to the Tech Test App documentation, We will run `./TechTestApp udatedb -s` to create tables and seed data to our RDS instance
+**7. Override environment variables for conf.toml and run TechTestApp updatedb -s**
+According to the Tech Test App documentation, We will run `./TechTestApp udatedb -s` to create tables and seed data to our RDS instance.
 
 ```
-- name: 8. Override environment variables for conf.toml and run TechTestApp updatedb -s
+- name: 7. Override environment variables for conf.toml and run TechTestApp updatedb -s
   become: yes
   shell: |
     export VTT_DBUSER={{ db_user }}
@@ -481,15 +493,13 @@ According to the Tech Test App documentation, We will run `./TechTestApp udatedb
   args:
     chdir: /etc/app/dist
   register: updatedb_result
-- debug:
-    var: updatedb_result
 ```
 
-**9. Install TechTestApp.service systemd unit file**
-The application needs to be set up as an SystemD service as specified. Therefore, a template `TechTestApp.service.j2` is provided for feeding in the environment variables. The service file will be located at `/etc/systemd/system/`
+**8. Install TechTestApp.service systemd unit file**
+The application needs to be set up as an SystemD service as specified. Therefore, a template `TechTestApp.service.j2` is provided for feeding in the environment variables. The service file will be located at `/etc/systemd/system/`.
 
 ```
-- name: 9. Install TechTestApp.service systemd unit file
+- name: 8. Install TechTestApp.service systemd unit file
   template: 
     src: TechTestApp.service.j2
     dest: /etc/systemd/system/TechTestApp.service
@@ -499,11 +509,11 @@ The application needs to be set up as an SystemD service as specified. Therefore
   become: yes
 ```
 
-**10. Start the application, if the service is rebooted**
-This step is for configuring the service file of the application to automatically start if the server is rebooted
+**9. Start the application, if the service is rebooted**
+This step is for configuring the service file of the application to automatically start if the server is rebooted.
 
 ```
-- name: 10. Start the application, if the service is rebooted
+- name: 9. Start the application, if the service is rebooted
   become: yes
   systemd:
     name: TechTestApp.service
@@ -513,6 +523,13 @@ This step is for configuring the service file of the application to automaticall
 ```
 
 ---
+
+### Circle CI Deployment
+
+
+
+---
+
 ## CLEAN UP INSTRUCTION
 Simply change into `infra` directory and run this command:
 

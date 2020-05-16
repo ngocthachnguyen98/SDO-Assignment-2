@@ -5,28 +5,22 @@
       stat:
         path: /tmp/TechTestApp_v.0.6.0_linux64.zip
       register: release_file
-    - debug:
-        var: release_file.stat.exists
 
 
     - name: 2. Download app release to EC2 instance to tmp directory
       become: yes
       get_url:
-        url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # local path to release file 
+        url: "https://github.com/servian/TechTestApp/releases/download/v.0.6.0/TechTestApp_v.0.6.0_linux64.zip" # path to release file 
         dest: /tmp
         mode: '0644'
       when: not release_file.stat.exists
       register: download_result
-    - debug:
-        var: download_result
 
 
     - name: 3. Check if the app directory exists
       stat:
         path: /etc/app
       register: app_dir
-    - debug:
-        var: app_dir.stat.exists
       
 
     - name: 4. Create app directory if it does not exist
@@ -34,16 +28,8 @@
       shell: "cd /etc && mkdir app"
       when: not app_dir.stat.exists
 
-      
-    # - name: 5. Check if the dist directory exists
-    #   stat:
-    #     path: /etc/app/dist
-    #   register: dist_dir
-    # - debug:
-    #     var: dist_dir.stat.exists
 
-
-    - name: 6. Unzip the release file, if the application has not been already installed
+    - name: 5. Unzip the release file, if the application has not been already installed
       become: yes
       unarchive:
         src: /tmp/TechTestApp_v.0.6.0_linux64.zip
@@ -51,15 +37,13 @@
         remote_src: yes
       when: not app_dir.stat.exists
       register: install_result
-    - debug:
-        var: install_result
 
     
-    - name: 7. Include environment varibles file    
+    - name: 6. Include environment varibles file    
       include_vars: external_vars.yml
 
 
-    - name: 8. Override environment variables for conf.toml and run TechTestApp updatedb -s
+    - name: 7. Override environment variables for conf.toml and run TechTestApp updatedb -s
       become: yes
       shell: |
         export VTT_DBUSER={{ db_user }}
@@ -71,12 +55,10 @@
       args:
         chdir: /etc/app/dist
       register: updatedb_result
-    - debug:
-        var: updatedb_result
 
 
     # Set the application as a service
-    - name: 9. Install TechTestApp.service systemd unit file
+    - name: 8. Install TechTestApp.service systemd unit file
       template: 
         src: TechTestApp.service.j2
         dest: /etc/systemd/system/TechTestApp.service
@@ -86,7 +68,7 @@
       become: yes
 
 
-    - name: 10. Start the application, if the service is rebooted
+    - name: 9. Start the application, if the service is rebooted
       become: yes
       systemd:
         name: TechTestApp.service
