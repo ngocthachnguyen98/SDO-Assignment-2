@@ -610,8 +610,6 @@ This step is for configuring the service file of the application to automaticall
 
 ***Note:*** *While working on this part, my account was not able to push any job to CircleCI. Therefore, I had created a different repository to work with. I have provided Screenshots folder for this issue*
 
-*The CircleCI deployment might not work due to some issues related to secret key verification on my VirtualBox program*
-
 ---
 
 The `./circleci/config.yml` is developed to run on every commit on every branch in the repository.
