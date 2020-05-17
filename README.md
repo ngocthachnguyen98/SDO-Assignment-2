@@ -478,6 +478,8 @@ init:
   terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamodb_table=tech-test-app-terraform-state-lock-dynamo" --backend-config="bucket=tech-test-app-remote-state-storage-bucket"
 ```
 
+* From here, you can excecute `ansible/run_ansible.sh` again to deploy the application
+
 ---
 
 ### Ansible Playbook
@@ -608,7 +610,9 @@ This step is for configuring the service file of the application to automaticall
 
 ### Circle CI Deployment
 
-***Note:*** *While working on this part, my account was not able to push any job to CircleCI. Therefore, I had created a different repository to work with. I have provided Screenshots folder for this issue*
+#### Notes:
+
+*While working on this part, my account was not able to push any job to CircleCI. Therefore, I had created a different repository to work with. I have provided `screenshots` folder for this issue*
 
 ---
 
