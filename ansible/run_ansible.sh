@@ -15,4 +15,4 @@ echo -e 'db_endpoint: '"${db_endpoint}"'\n'\
 'db_pass: '"${db_pass}" > ./vars/external_vars.yml;
 
 # Execute playbook.yml
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.yml -e 'record_host_keys=True' -u ec2-user --private-key ../infra/keys/ec2-key playbook.yml
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.yml -e 'record_host_keys=True' -u ec2-user --private-key ~/.ssh/ec2-key playbook.yml

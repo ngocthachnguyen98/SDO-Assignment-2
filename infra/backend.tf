@@ -13,15 +13,15 @@ resource "aws_s3_bucket" "terraform-state-storage-s3" {
   }
 }
 
-terraform {
-  backend "s3" {
-    bucket          = "tech-test-app-remote-state-storage-bucket"
-    encrypt         = true
-    key             = "terraform.tfstate"
-    region          = "us-east-1"
-    dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
-  }
-}
+# terraform {
+#   backend "s3" {
+#     bucket          = "tech-test-app-remote-state-storage-bucket"
+#     encrypt         = true
+#     key             = "terraform.tfstate"
+#     region          = "us-east-1"
+#     dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
+#   }
+# }
 
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock" {
   name           = "tech-test-app-terraform-state-lock-dynamo"

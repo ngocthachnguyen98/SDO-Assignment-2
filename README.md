@@ -113,7 +113,7 @@ Once the VPC is declared, we will have the environment to deploy our EC2 instanc
 
 But to log into the instance, a key pair is needed. 
 
-In the `infra/keys` directory, the RSA key named `ec2-key` will be generated through `infra/key_gen.sh`, which is triggered when running `make up` command.
+In the `infra/keys` directory, the RSA key named `ec2-key` will be generated through `infra/key_gen.sh`, which is triggered when running `make up` command. The key will also be added to the `~/.ssh` directory.
 
 The shell script `infra/key_gen.sh` will also create `terraform.tfvars` file to populate `var.public_key` in `infra/ec2.tf`.
 
@@ -401,23 +401,20 @@ terraform {
 }
 ```
 
-The `Makefile` is also updated with the right --backend-config option for `terraform init` command to initiialize the remote backend:
-
-```
-terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamodb_table=tech-test-app-terraform-state-lock-dynamo" --backend-config="bucket=tech-test-app-remote-state-storage-bucket"
-```
-
 ---
 
 ## DEPLOY INSTRUCTION
 
-First we need to deploy infrastructure onto AWS. Simply change into `/infra` directory where the `Makefile` located and run:
+### For Local Backend
+
+* First we need to deploy infrastructure onto AWS. Simply change into `/infra` directory where the `Makefile` located and run:
 
 ```
-make init
+make init-no-remote
 make up
 ```
-After initializing our remote backend and the infrastructure is ready, change into `/ansible` directory and run this command: 
+
+* After initializing our backend and the infrastructure is ready, change into `/ansible` directory and run this command: 
 
 ```
 ./run_ansible.sh
@@ -448,7 +445,37 @@ echo -e 'db_endpoint: '"${db_endpoint}"'\n'\
 'db_pass: '"${db_pass}" > ./vars/external_vars.yml;
 
 # Execute playbook.yml
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.yml -e 'record_host_keys=True' -u ec2-user --private-key ../infra/keys/ec2-key playbook.yml
+ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory.yml -e 'record_host_keys=True' -u ec2-user --private-key ~/.ssh/ec2-key playbook.yml
+```
+
+---
+
+### For Remote Backend
+
+* We first need to deploy our infrastructure with **local backend** first to get the S3 Bucket and DynamoDB set up on AWS, which is what's done in the above step. 
+
+* Then uncomment this code block below in `infra/backend.tf`:  
+
+```
+# Remote Backend
+terraform {
+  backend "s3" {
+    bucket          = "tech-test-app-remote-state-storage-bucket"
+    encrypt         = true
+    key             = "terraform.tfstate"
+    region          = "us-east-1"
+    dynamodb_tablle = "tech-test-app-terraform-state-lock-dynamo"
+  }
+}
+```
+
+* Run `make init` command to initializing the remote backend with the right `--backend-config` option:
+
+```
+# infra/Makefile
+
+init:
+  terraform init --backend-config="key=terraform.tfstate" --backend-config="dynamodb_table=tech-test-app-terraform-state-lock-dynamo" --backend-config="bucket=tech-test-app-remote-state-storage-bucket"
 ```
 
 ---
@@ -459,7 +486,7 @@ The playbook will go a number of steps in order to deploy the application
 
 #### 1. Check if the release file of the app exists
 
-When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/temp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded.
+When run for the first time, the application release file `TechTestApp_v.0.6.0_linux64.zip` will be stored at `/tmp` on the EC2 remote host. We want to check at this location whether the file has already been downloaded.
 
 ```
 - name: 1. Check if the release file of the app exists
@@ -583,6 +610,10 @@ This step is for configuring the service file of the application to automaticall
 
 ***Note:*** *While working on this part, my account was not able to push any job to CircleCI. Therefore, I had created a different repository to work with. I have provided Screenshots folder for this issue*
 
+*The CircleCI deployment might not work due to some issues related to secret key verification on my VirtualBox program*
+
+---
+
 The `./circleci/config.yml` is developed to run on every commit on every branch in the repository.
 
 Because there are some similiarity in the jobs. A command named `setup-cd` has been declared at the beginning of the file with environment configuring steps. This will install *Terraform, Ansible and AWS CLI*:
@@ -609,6 +640,8 @@ setup-cd:
           sudo ./aws/install
 ```
 
+---
+
 #### Build job
 
 * This job will start by running the `setup-cd` command. 
@@ -633,6 +666,8 @@ setup-cd:
     paths:
       - artifacts 
 ```
+
+---
 
 #### Deploy test job
 
@@ -660,7 +695,9 @@ setup-cd:
     ./run_ansible.sh
 ```
 
-**Disclaimer: The CircleCI deployment is an unfinished work due to some issue related to secret key verification**
+#### Deploy prod job
+
+This job is similar to 'Deploy test job' but in a production environment.
 
 ---
 
@@ -670,4 +707,10 @@ Simply change into `infra` directory and run this command:
 
 ```
 make down
+```
+
+If there are some issues related to states lock when destroying resource, run this command to force destroying:
+
+```
+make down-loose
 ```

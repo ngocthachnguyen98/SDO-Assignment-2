@@ -65,9 +65,30 @@ jobs:
             ./run_ansible.sh
                   
 
-  # deploy-prod:
-    
+  deploy-prod:
+    docker:
+      - image: cimg/base:2020.01
+    environment:
+      ENV: prod
+    steps:
+      - attach_workspace: 
+          at: ./
 
+      - setup-cd
+
+      - run:
+          name: Deploy infrastructure
+          command: |
+            cd artifacts/infra
+            make init
+            make up
+
+      - run:
+          name: Run shell script to generate environment variables and execute Ansible Playbook
+          command: |
+            cd artifacts/ansible
+            ./run_ansible.sh
+    
 
 workflows:
   version: 2
@@ -81,6 +102,6 @@ workflows:
           type: approval
           requires:
             - deploy-test
-      # - deploy-prod:
-      #     requires:
-      #       - approval
+      - deploy-prod:
+          requires:
+            - approval
