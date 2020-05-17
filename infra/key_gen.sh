@@ -3,7 +3,7 @@ set +ex
 
 mkdir -p keys
 
-ssh-keygen -t rsa -b 4096 -f keys/ec2-key -N ''
+test -f keys/ec2-key || yes | ssh-keygen -t rsa -b 4096 -f keys/ec2-key -N ''
 
 cp keys/ec2-key keys/ec2-key.pub ~/.ssh
 
