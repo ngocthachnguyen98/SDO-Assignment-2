@@ -1,3 +1,5 @@
+# COSC2759 System Deployment and Operation - Assignment 2 Semeter 1 2020 at RMIT
+
 **Student Name: Thach Ngoc Nguyen**
 
 **Student Number: s3651311**
@@ -7,6 +9,12 @@
 
 ## DEPENDENCIES
 
+- Terraform
+- Ansible 
+- AWS
+- Nodejs
+- CircleCI
+- Docker
 
 ### VPC
 
