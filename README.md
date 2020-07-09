@@ -6,6 +6,15 @@
 
 # Servian TechTestApp
 
+## Requirements
+
+The assignment specifications can be viewed [here](./SDO_Assignment2.pdf)
+
+## Scenario
+
+ACME corp. has developed a web application using NodeJS. Vue.js, and PostgreSQL, and are running this in their AWS cloud account. The source for the application is stored in GitHub
+
+I was asked to set up an automated build, or continuous integration, to help reduce the dependency and to add automated testing to reduce the number of defects that is missed during testing.
 
 ## DEPENDENCIES
 
