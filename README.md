@@ -10,6 +10,15 @@
 
 The assignment specifications can be viewed [here](./SDO_Assignment2.pdf)
 
+### Summary
+
+- Create a VPC using Terraform ready to host the application in
+- Create 3 layer application infrastructure using Terraform
+- Automate deployment of the application to the deployed EC2 instance
+- Set up an Ansible playbook that deploys and configures the application on the EC2 instance
+- Automate databse deployment to the databse instance
+- Set up an remote backend using S3 and DynamoDB
+
 ## Scenario
 
 ACME corp. has developed a web application using NodeJS. Vue.js, and PostgreSQL, and are running this in their AWS cloud account. The source for the application is stored in GitHub
